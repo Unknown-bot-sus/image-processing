@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Gray Scale</title>
+  </head>
+
+  <body>
+    <video id="video" width="0" height="0"></video>
+
+    <canvas id="canvas1"></canvas>
+    <canvas id="canvas2"></canvas>
+    <script language="javascript" type="text/javascript">
+      let width = 400;
+      let height = 300;
+
+      let canvas = document.getElementById("canvas1");
+      let context = canvas.getContext("2d");
+      let canvas2 = document.getElementById("canvas2");
+      let context2 = canvas2.getContext("2d");
+
+      canvas.width = width;
+      canvas.height = height;
+      canvas2.width = width;
+      canvas2.height = height;
+
+      let video = document.getElementById("video");
+
+      navigator.mediaDevices
+        .getUserMedia({ video: true })
+        .then(function (stream) {
+          video.srcObject = stream;
+          video.play();
+        });
+
+      function draw() {
+        context2.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const imageData = context2.getImageData(
+          0,
+          0,
+          canvas.width,
+          canvas.height
+        );
+        const resultData = context.getImageData(
+          0,
+          0,
+          canvas.width,
+          canvas.height
+        );
+
+        for (let row = 0; row < canvas.height; row++) {
+          for (let col = 0; col < canvas.width; col++) {
+            const position = (canvas.width * row + col) * 4;
+
+            const r = imageData.data[position];
+            const g = imageData.data[position + 1];
+            const b = imageData.data[position + 2];
+            const alpha = imageData.data[position + 3];
+
+            let grayScale = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+            resultData.data[position] = grayScale;
+            resultData.data[position + 1] = grayScale;
+            resultData.data[position + 2] = grayScale;
+            resultData.data[position + 3] = 255;
+          }
+        }
+
+        context.putImageData(resultData, 0, 0);
+        plotHistogram(
+          resultData.data.filter((_, index) => index % 4 === 0),
+          "black",
+          context
+        );
+
+        plotHistogram(
+          imageData.data.filter((_, index) => index % 4 === 0),
+          "red",
+          context2
+        );
+        plotHistogram(
+          imageData.data.filter((_, index) => (index - 1) % 4 === 0),
+          "green",
+          context2,
+          100
+        );
+        plotHistogram(
+          imageData.data.filter((_, index) => (index - 2) % 4 === 0),
+          "blue",
+          context2,
+          200
+        );
+        requestAnimationFrame(draw);
+      }
+
+      function plotHistogram(data, color, ctx, y = 0) {
+        const histogram = new Array(256).fill(0);
+        for (let pixel of data) {
+          ++histogram[pixel];
+        }
+
+        // Normalize histogram valvues
+        const maxFreq = Math.max(...histogram);
+        const normalizeHistogram = histogram.map((count) => count / maxFreq);
+        // plot the histogram
+        normalizeHistogram.forEach((val, index) => {
+          ctx.beginPath();
+          ctx.moveTo(index, 100 + y);
+          ctx.lineTo(index, (1 - val) * 100 + y);
+          ctx.strokeStyle = color;
+          ctx.stroke();
+        });
+      }
+
+      requestAnimationFrame(draw);
+    </script>
+  </body>
+</html>
