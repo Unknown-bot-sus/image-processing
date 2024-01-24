@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Motion Detection</title>
+  </head>
+
+  <body>
+    <video id="video" width="0" height="0"></video>
+
+    <canvas id="canvas1"></canvas>
+    <canvas id="canvas2"></canvas>
+    <script language="javascript" type="text/javascript">
+      let width = 400;
+      let height = 300;
+
+      let canvas = document.getElementById("canvas1");
+      let context = canvas.getContext("2d");
+      let canvas2 = document.getElementById("canvas2");
+      let context2 = canvas2.getContext("2d");
+
+      let previousFrame = context.getImageData(
+        0,
+        0,
+        canvas.width,
+        canvas.height
+      );
+
+      canvas.width = width;
+      canvas.height = height;
+      canvas2.width = width;
+      canvas2.height = height;
+
+      let video = document.getElementById("video");
+
+      navigator.mediaDevices
+        .getUserMedia({ video: true })
+        .then(function (stream) {
+          video.srcObject = stream;
+          video.play();
+        });
+
+      let lastX = 0,
+        lastY = 0;
+
+      function draw() {
+        context2.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+        const imageData = context2.getImageData(
+          0,
+          0,
+          canvas.width,
+          canvas.height
+        );
+
+        const resultData = context.getImageData(
+          0,
+          0,
+          canvas.width,
+          canvas.height
+        );
+
+        const sampleSize = 10;
+
+        for (let row = 0; row < canvas.height; row += sampleSize) {
+          for (let col = 0; col < canvas.width; col += sampleSize) {
+            const position = (canvas.width * row + col) * 4;
+
+            const curR = imageData.data[position];
+            const curG = imageData.data[position + 1];
+            const curB = imageData.data[position + 2];
+
+            const preR = previousFrame.data[position];
+            const preG = previousFrame.data[position + 1];
+            const preB = previousFrame.data[position + 2];
+
+            const r = Math.abs(curR - preR);
+            const g = Math.abs(curG - preG);
+            const b = Math.abs(curB - preB);
+
+            let grayScale = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+
+            const resamplePosition =
+              ((canvas.width * row) / sampleSize + col / sampleSize) * 4;
+
+            resultData.data[resamplePosition] = grayScale;
+            resultData.data[resamplePosition + 1] = grayScale;
+            resultData.data[resamplePosition + 2] = grayScale;
+            resultData.data[resamplePosition + 3] = 255;
+          }
+        }
+
+        let currentWinner = 0;
+
+        // enlarging the image
+        for (let row = 0; row < canvas.height / sampleSize; row++) {
+          for (let col = 0; col < canvas.width / sampleSize; col++) {
+            const position = (canvas.width * row + col) * 4;
+            let color = resultData.data[position];
+
+            context.fillStyle = `rgb(${color}, ${color}, ${color})`;
+            context.fillRect(
+              col * sampleSize,
+              row * sampleSize,
+              sampleSize,
+              sampleSize
+            );
+
+            if (currentWinner + 50 < color) {
+              currentWinner = color;
+              lastX = lastX + 0.1 * (sampleSize * col - lastX);
+              lastY = lastY + 0.1 * (sampleSize * row - lastY);
+            }
+          }
+        }
+
+        context.strokeStyle = "red";
+        context.strokeRect(lastX, lastY, sampleSize, sampleSize);
+
+        previousFrame = imageData;
+        requestAnimationFrame(draw);
+      }
+
+      requestAnimationFrame(draw);
+    </script>
+  </body>
+</html>
