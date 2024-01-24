@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Pixel to Pixel operations</title>
+  </head>
+
+  <body>
+    <video id="video" width="0" height="0"></video>
+
+    <canvas id="canvas1"></canvas>
+    <canvas id="canvas2"></canvas>
+
+    <script language="javascript" type="text/javascript">
+      // the simplest possible script to say which pixel is brighest using pixels from a live webcam.
+      let width = 400;
+      let height = 300;
+
+      let canvas = document.getElementById("canvas1");
+
+      let context = canvas.getContext("2d");
+      let canvas2 = document.getElementById("canvas2");
+      let context2 = canvas2.getContext("2d");
+
+      canvas.addEventListener("mousemove", getMouse, false);
+
+      // This sets the width and height to the document window
+      canvas.width = width;
+      canvas.height = height;
+      canvas2.width = width;
+      canvas2.height = height;
+
+      // Grab elements, create settings, etc.
+      let video = document.getElementById("video");
+
+      navigator.mediaDevices
+        .getUserMedia({ video: true })
+        .then(function (stream) {
+          video.srcObject = stream;
+          video.play();
+        });
+
+      var imageData = 0;
+      var resultData = 0;
+      let processFunc = invert;
+
+      function draw() {
+        context2.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+        imageData = context2.getImageData(0, 0, canvas.width, canvas.height);
+        resultData = context.getImageData(0, 0, canvas.width, canvas.height);
+
+        // iterate over all pixels
+        for (var i = 0; i < canvas.height; i++) {
+          // loop through each row
+          for (var j = 0; j < canvas.width; j++) {
+            let position = (canvas.width * i + j) * 4;
+            processFunc(imageData.data, resultData.data, position);
+          }
+        }
+        context.putImageData(resultData, 0, 0);
+        requestAnimationFrame(draw);
+      }
+
+      requestAnimationFrame(draw);
+
+      function getMouse(mousePosition) {
+        mouseX = mousePosition.layerX;
+        mouseY = mousePosition.layerY;
+      }
+
+      function getGray(image, position) {
+        const { r, g, b } = getColors(image, position);
+        return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+      }
+
+      function grayScale(image, resultImage, position) {
+        const grayVal = getGray(image, position);
+        resultImage[position] = grayVal;
+        resultImage[position + 1] = grayVal;
+        resultImage[position + 2] = grayVal;
+        resultImage[position + 3] = 255;
+      }
+
+      function invert(image, resultImage, position) {
+        const { r, g, b, a } = getColors(image, position);
+        resultImage[position] = 255 - r;
+        resultImage[position + 1] = 255 - g;
+        resultImage[position + 2] = 255 - b;
+        resultImage[position + 3] = a;
+      }
+
+      function invertGrayScale(image, resultImage, position) {
+        const grayVal = getGray(image, position);
+        const invertGray = 255 - grayVal;
+        resultImage[position] = invertGray;
+        resultImage[position + 1] = invertGray;
+        resultImage[position + 2] = invertGray;
+        resultImage[position + 3] = 255;
+      }
+
+      function binrize(image, resultImage, position) {
+        const threshold = Math.floor(255 / 2);
+        const grayScale = getGray(image, position);
+        let val = 0;
+        if (grayScale >= threshold) {
+          val = 255;
+        }
+
+        resultImage[position] = val;
+        resultImage[position + 1] = val;
+        resultImage[position + 2] = val;
+        resultImage[position + 3] = 255;
+      }
+
+      function getColors(image, position) {
+        return {
+          r: image[position],
+          g: image[position + 1],
+          b: image[position + 2],
+          a: image[position + 3],
+        };
+      }
+
+      document.addEventListener("keypress", (e) => {
+        const key = e.keyCode;
+        if (key === 49) {
+          processFunc = grayScale;
+        } else if (key === 50) {
+          processFunc = invert;
+        } else if (key === 51) {
+          processFunc = invertGrayScale;
+        } else if (key === 52) {
+          processFunc = binrize;
+        }
+      });
+    </script>
+  </body>
+</html>
